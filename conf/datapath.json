@@ -1,0 +1,10 @@
+{
+  "data": {
+    "train_data": "./data/train.ctb51.conll",
+    "dev_data": "./data/dev.ctb51.conll",
+    "test_data": "./data/test.ctb51.conll"
+  },
+  "pretrained": {
+    "word_embedding": "./data/giga.100.txt"
+  }
+}
