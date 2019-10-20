@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import time
 import numpy as np
 from .MST import mst_decode
-from log.logger import MyLogger
+from log.logger_ import logger
 
 
 class BiaffineParser(object):
@@ -14,10 +14,9 @@ class BiaffineParser(object):
         super(BiaffineParser, self).__init__()
         assert isinstance(parser_model, nn.Module)
         self.parser_model = parser_model
-        self.logger = MyLogger('log/log_config.json').get_logger()
 
     def summary(self):
-        self.logger.info(self.parser_model)
+        logger.info(self.parser_model)
 
     # 训练一次
     def train_iter(self, train_data, args, vocab, optimizer):
@@ -48,8 +47,8 @@ class BiaffineParser(object):
 
             ARC = all_arc_acc * 100 / all_arcs
             REL = all_rel_acc * 100 / all_arcs
-            self.logger.info('Iter%d ARC: %.3f%%, REL: %.3f%%' % (i + 1, ARC, REL))
-            self.logger.info('time cost: %.2fs, train loss: %.2f' % ((time.time() - start_time), loss_val))
+            logger.info('Iter%d ARC: %.3f%%, REL: %.3f%%' % (i + 1, ARC, REL))
+            logger.info('time cost: %.2fs, train loss: %.2f' % ((time.time() - start_time), loss_val))
 
             # 梯度累积，相对于变相增大batch_size，节省存储
             if (i+1) % args.update_steps == 0 or (i == nb_batch-1):
@@ -73,8 +72,8 @@ class BiaffineParser(object):
             lr_scheduler.step()
             train_loss, arc, rel = self.train_iter(train_data, args, vocab, optimizer)
             dev_uas, dev_las = self.evaluate(dev_data, args, vocab)
-            self.logger.info('[Epoch %d] train loss: %.3f, lr: %f, ARC: %.3f%%, REL: %.3f%%' % (ep, train_loss, lr_scheduler.get_lr()[0], arc, rel))
-            self.logger.info('Dev data -- UAS: %.3f%%, LAS: %.3f%%' % (dev_uas, dev_las))
+            logger.info('[Epoch %d] train loss: %.3f, lr: %f, ARC: %.3f%%, REL: %.3f%%' % (ep, train_loss, lr_scheduler.get_lr()[0], arc, rel))
+            logger.info('Dev data -- UAS: %.3f%%, LAS: %.3f%%' % (dev_uas, dev_las))
 
     def evaluate(self, test_data, args, vocab):
         self.parser_model.eval()
@@ -142,7 +141,7 @@ class BiaffineParser(object):
         :return:
         '''
         non_pad_mask = non_pad_mask.byte()
-        non_pad_mask[:, 0] = 0  # mask out <root>
+        # non_pad_mask[:, 0] = 0  # mask out <root>
         pad_mask = (non_pad_mask == 0)
 
         bz, seq_len, _ = pred_arcs.size()
@@ -161,7 +160,7 @@ class BiaffineParser(object):
 
         out_rels = pred_rels[torch.arange(bz).unsqueeze(1), torch.arange(seq_len).unsqueeze(0), true_heads]
 
-        true_rels.masked_fill_(pad_mask, -1)
+        true_rels = true_rels.masked_fill(pad_mask, -1)
         # (bz*seq_len, rel_size)  (bz*seq_len, )
         rel_loss = F.cross_entropy(out_rels.reshape(-1, rel_size), true_rels.reshape(-1), ignore_index=-1)
 

@@ -4,6 +4,28 @@ from collections import Counter
 import numpy as np
 
 
+def create_vocab(data_path, min_count=2):
+    assert os.path.exists(data_path)
+
+    root_rel = ''
+    wd_counter, pos_counter, rel_counter = Counter(), Counter(), Counter()
+    with open(data_path, 'r', encoding='utf-8') as fr:
+        for deps in read_deps(fr):
+            for dep in deps:
+                wd_counter[dep.form] += 1
+                pos_counter[dep.pos] += 1
+
+                if dep.head != 0:
+                    rel_counter[dep.dep_rel] += 1
+                elif root_rel == '':
+                    root_rel = dep.dep_rel
+                    rel_counter[dep.dep_rel] += 1
+                elif root_rel != dep.dep_rel:
+                    print('root = ' + root_rel + ', rel for root = ' + dep.dep_rel)
+
+    return DepVocab(wd_counter, pos_counter, rel_counter, root_rel, min_count=min_count)
+
+
 class DepVocab(object):
     '''
         词表
@@ -173,19 +195,3 @@ class DepVocab(object):
     def rel_size(self):
         return len(self._rel2idx)
 
-
-def create_vocab(data_path, min_count=2):
-    assert os.path.exists(data_path)
-
-    root_rel = ''
-    wd_counter, pos_counter, rel_counter = Counter(), Counter(), Counter()
-    with open(data_path, 'r', encoding='utf-8') as fr:
-        for deps in read_deps(fr):
-            for dep in deps:
-                wd_counter[dep.form] += 1
-                pos_counter[dep.pos] += 1
-                rel_counter[dep.dep_rel] += 1
-                if dep.head == 0:
-                    root_rel = dep.dep_rel
-
-    return DepVocab(wd_counter, pos_counter, rel_counter, root_rel, min_count=min_count)

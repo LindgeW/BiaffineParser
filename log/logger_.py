@@ -68,7 +68,4 @@ def get_logger(name=None):
     return logger
 
 
-if __name__ == '__main__':
-    logger = get_logger()
-    logger.info('正在执行。。。')
-    print(__name__)
+logger = get_logger()

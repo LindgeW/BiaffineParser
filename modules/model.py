@@ -97,9 +97,8 @@ class ParserModel(nn.Module):
             seq_len = wd_inputs.size(1)
             seq_range = torch.arange(seq_len, dtype=torch.long, device=wd_inputs.device)\
                 .unsqueeze(dim=0).expand_as(wd_inputs)  # (1, seq_len)
-            pos_embed = self.pos_embedding(seq_range)
             # [bz, seq_len, d_model]
-            embed += pos_embed
+            embed += self.pos_embedding(seq_range)
             embed = self.pos_norm(embed)
             if self.training:
                 embed = timestep_dropout(embed, self.args.embed_drop)
