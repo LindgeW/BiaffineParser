@@ -2,6 +2,7 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 # PE(pos, 2i) = sin(pos/10000^(2i/d_model))
@@ -69,8 +70,6 @@ class MultiHeadAttention(nn.Module):
 
         self._self_attention = SelfAttention(dropout)
 
-        self._layer_norm = nn.LayerNorm(d_model, eps=1e-6)
-
         self._dropout = nn.Dropout(dropout)
 
         self.reset_parameters()
@@ -89,8 +88,6 @@ class MultiHeadAttention(nn.Module):
         more: Q == K, len_k==len_v
         :return: [bz, len_q, d_model]
         '''
-        residual = q
-
         bz, len_q, _ = q.size()
         bz, len_k, _ = k.size()
         bz, len_v, _ = v.size()
@@ -114,7 +111,7 @@ class MultiHeadAttention(nn.Module):
         if self.training:
             multi_head = self._dropout(multi_head)
 
-        return self._layer_norm(residual + multi_head)
+        return multi_head
 
 
 class PositionwiseFeedForward(nn.Module):
@@ -122,16 +119,10 @@ class PositionwiseFeedForward(nn.Module):
         super(PositionwiseFeedForward, self).__init__()
 
         self.ffn = nn.Sequential(
-            nn.Conv1d(in_channels=d_in,
-                      out_channels=d_ff,
-                      kernel_size=1),  # 权重共享
+            nn.Linear(in_features=d_in, out_features=d_ff),
             nn.ReLU(),
-            nn.Conv1d(in_channels=d_ff,
-                      out_channels=d_in,
-                      kernel_size=1)
+            nn.Linear(in_features=d_ff, out_features=d_in)
         )
-
-        self._layer_norm = nn.LayerNorm(d_in, eps=1e-6)
 
         self._dropout = nn.Dropout(dropout)
 
@@ -140,21 +131,13 @@ class PositionwiseFeedForward(nn.Module):
         :param inputs: [bz, len_q, d_model]
         :return: [bz, len_q, d_model]
         '''
-        residual = inputs
-
-        # [bz, len_q, d_model] -> [bz, d_model, len_q]
-        fc_in = inputs.transpose(1, 2)
-
-        # [bz, d_model, len_q]
-        fc_out = self.ffn(fc_in)
-
         # [bz, len_q, d_model]
-        out = fc_out.transpose(1, 2)
+        fc_out = self.ffn(inputs)
 
         if self.training:
-            out = self._dropout(out)
+            fc_out = self._dropout(fc_out)
 
-        return self._layer_norm(residual + out)
+        return fc_out
 
 
 class EncoderLayer(nn.Module):
@@ -166,9 +149,12 @@ class EncoderLayer(nn.Module):
                                                   d_v=d_v,
                                                   nb_heads=nb_heads,
                                                   dropout=dropout)
+        self.norm_1 = nn.LayerNorm(d_model, eps=1e-6)
         # feedforward
         self._pwffn = PositionwiseFeedForward(d_in=d_model,
                                               d_ff=d_ff)
+
+        self.norm_2 = nn.LayerNorm(d_model, eps=1e-6)
 
     def forward(self, enc_in, att_mask=None, seq_mask=None):
         '''
@@ -177,17 +163,21 @@ class EncoderLayer(nn.Module):
         :param seq_mask: [bz, len_q, 1] 将序列填充部分mask
         :return: [bz, len_q, d_model]
         '''
-        # [bz, len_q, d_model]
-        multi_head = self._multi_head_att(enc_in, enc_in, enc_in, att_mask)
-        if seq_mask is not None:
-            multi_head *= seq_mask
+        enc_in = self.norm_1(enc_in)
+        att_out = self._multi_head_att(enc_in, enc_in, enc_in, att_mask)
+        enc_in = enc_in + att_out
 
-        # [bz, len_q, d_model]
-        out = self._pwffn(multi_head)
         if seq_mask is not None:
-            out *= seq_mask
+            enc_in *= seq_mask
 
-        return out
+        enc_in = self.norm_2(enc_in)
+        fc_out = self._pwffn(enc_in)
+        enc_out = enc_in + fc_out
+
+        if seq_mask is not None:
+            enc_out *= seq_mask
+
+        return enc_out
 
 
 class TransformerEncoder(nn.Module):
@@ -198,17 +188,17 @@ class TransformerEncoder(nn.Module):
         d_model = args.wd_embed_dim + args.tag_embed_dim
         d_k = d_v = d_model // nb_heads
 
-        self._norm = nn.LayerNorm(d_model, eps=1e-6)
-
         self._encoder_stack = nn.ModuleList([
             EncoderLayer(d_model, d_k, d_v, args.d_ff, nb_heads)
             for _ in range(args.encoder_layer)
         ])
 
+        self.norm_out = nn.LayerNorm(d_model, eps=1e-6)
+
         self.linear_out = nn.Linear(in_features=d_model,
                                     out_features=args.hidden_size)
 
-    def forward(self, embed_inputs, non_pad_mask=None):
+    def forward(self, embed_inputs, non_pad_mask):
         '''
         :param embed_inputs:  (bz, seq_len, embed_dim)
         :param non_pad_mask: (bz, seq_len)
@@ -217,13 +207,14 @@ class TransformerEncoder(nn.Module):
         if non_pad_mask is None:
             att_mask = None
         else:
-            att_mask = (non_pad_mask == 0)   # 填充部分的mask(uint8类型)
+            att_mask = (non_pad_mask == 0)  # 填充部分的mask(uint8类型)
             # seq_mask = non_pad_mask[:, :, None]  # (bz, seq_len, 1)
 
-        encoder_out = self._norm(embed_inputs)
-
+        encoder_out = embed_inputs
         for encoder in self._encoder_stack:
             # [bz, len_q, d_model]
             encoder_out = encoder(encoder_out, att_mask=att_mask)
+
+        encoder_out = self.norm_out(encoder_out)
 
         return self.linear_out(encoder_out)

@@ -35,7 +35,7 @@ class BiaffineParser(object):
 
             loss = self.calc_loss(pred_arc_score, pred_rel_score, true_head_idx, true_rel_idx, non_pad_mask)
             if args.update_steps > 1:
-                loss /= args.update_steps
+                loss = loss / args.update_steps
             loss_val = loss.data.item()
             train_loss += loss_val
             loss.backward()
@@ -63,24 +63,36 @@ class BiaffineParser(object):
         return train_loss, ARC, REL
 
     # 训练多次
-    def train(self, train_data, dev_data, args, vocab):
+    def train(self, train_data, dev_data, test_data, args, vocab):
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parser_model.parameters()),
                                lr=args.learning_rate, betas=(args.beta1, args.beta2))
-        lr_scheduler = optim.lr_scheduler.LambdaLR(optimizer, lambda t: 0.75 ** (t / 5000))
-
+        lr_scheduler = optim.lr_scheduler.LambdaLR(optimizer, lambda t: 0.75 ** (t / 500))
+        best_uas = 0
+        test_best_uas, test_best_las = 0, 0
         for ep in range(1, 1+args.epoch):
             lr_scheduler.step()
             train_loss, arc, rel = self.train_iter(train_data, args, vocab, optimizer)
             dev_uas, dev_las = self.evaluate(dev_data, args, vocab)
             logger.info('[Epoch %d] train loss: %.3f, lr: %f, ARC: %.3f%%, REL: %.3f%%' % (ep, train_loss, lr_scheduler.get_lr()[0], arc, rel))
-            logger.info('Dev data -- UAS: %.3f%%, LAS: %.3f%%' % (dev_uas, dev_las))
+            logger.info('Dev data -- UAS: %.3f%%, LAS: %.3f%%, best_UAS: %.3f%%' % (dev_uas, dev_las, best_uas))
+            if dev_uas > best_uas:
+                best_uas = dev_uas
+                test_uas, test_las = self.evaluate(test_data, args, vocab)
+                if test_best_uas < test_uas:
+                    test_best_uas = test_uas
+                if test_best_las < test_las:
+                    test_best_las = test_las
+
+                logger.info('Test data -- UAS: %.3f%%, LAS: %.3f%%' % (test_uas, test_las))
+
+        logger.info('Final test performance -- UAS: %.3f%%, LAS: %.3f%%' % (test_best_uas, test_best_las))
 
     def evaluate(self, test_data, args, vocab):
         self.parser_model.eval()
 
         all_arc_acc, all_rel_acc, all_arcs = 0, 0, 0
         with torch.no_grad():
-            for batcher in batch_iter(test_data, args.batch_size//2, vocab):
+            for batcher in batch_iter(test_data, args.batch_size, vocab):
                 batcher = (x.to(args.device) for x in batcher)
                 wd_idx, extwd_idx, tag_idx, true_head_idx, true_rel_idx, non_pad_mask = batcher
 

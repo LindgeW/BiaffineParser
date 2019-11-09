@@ -34,6 +34,7 @@ def args_config():
     parse.add_argument('--label_mlp_size', type=int, default=100, help='label mlp size')
 
     parse.add_argument('-mpe', '--max_pos_embeddings', default=200, help='max sequence position embeddings')
+    parse.add_argument('--use_sine_pos', default=True, help='whether use sine & cosine position embeddings')
     parse.add_argument("--d_model", type=int, default=200, help='sub-layer feature size')
     # parse.add_argument("--d_k", type=int, default=50, help='Query or Key feature size')
     # parse.add_argument("--d_v", type=int, default=50, help='Value feature size')
@@ -41,7 +42,7 @@ def args_config():
     parse.add_argument("--nb_heads", type=int, default=8, help='sub-layer feature size')
     parse.add_argument("--encoder_layer", type=int, default=6, help='the number of encoder layer')
 
-    parse.add_argument("--hidden_size", type=int, default=200, help='the output size of encoder layer, including lstm and transformer encoder')
+    parse.add_argument("--hidden_size", type=int, default=400, help='the output size of encoder layer, including lstm and transformer encoder')
     parse.add_argument("--enc_type", default='lstm', choices=['cnn', 'lstm', 'transformer'], help='encoder type, including `lstm` and `transformer`')
 
     parse.add_argument('--embed_drop', type=float, default=0.33, help='embedding dropout')

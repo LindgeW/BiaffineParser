@@ -52,7 +52,5 @@ if __name__ == '__main__':
     biff_parser = BiaffineParser(parser_model)
     biff_parser.summary()
 
-    biff_parser.train(train_data, dev_data, args, dep_vocab)
+    biff_parser.train(train_data, dev_data, test_data, args, dep_vocab)
 
-    test_uas, test_las = biff_parser.evaluate(test_data, args, dep_vocab)
-    print('Test data -- UAS: %.3f%%, LAS: %.3f%%' % (test_uas, test_las))

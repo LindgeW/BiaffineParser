@@ -1,10 +1,11 @@
 from .layer import *
-from .encoder.transformer import TransformerEncoder
+from .encoder.transformer2 import TransformerEncoder
 from .encoder.bilstm import BiLSTMEncoder
 from .encoder.cnn_encoder import ConvEncoder
 from .encoder.transformer import PositionEmbed
 from .MST import mst_decode
-from .dropout import independent_dropout, timestep_dropout
+from .dropout import *
+# from fastNLP.modules.encoder import TransformerEncoder
 '''
 graph-based parser构成：
 1、特征提取器(CNN / LSTM / ELMo / Transformer / Bert)
@@ -31,9 +32,13 @@ class ParserModel(nn.Module):
                                           embedding_dim=args.tag_embed_dim,
                                           padding_idx=0)
 
-        self.pos_embedding = nn.Embedding.from_pretrained(torch.from_numpy(PositionEmbed(args.max_pos_embeddings,
-                                                                                         d_model=args.wd_embed_dim + args.tag_embed_dim, pad_idx=0)))
-        self.pos_embedding.weight.requires_grad = False
+        self.pos_embedding = nn.Embedding(num_embeddings=args.max_pos_embeddings,
+                                          embedding_dim=args.wd_embed_dim + args.tag_embed_dim)
+        if args.use_sine_pos:
+            self.pos_embedding.weight.data.copy_(torch.from_numpy(PositionEmbed(args.max_pos_embeddings,
+                                                                                d_model=args.wd_embed_dim + args.tag_embed_dim,
+                                                                                pad_idx=0)))
+            self.pos_embedding.weight.requires_grad = False
 
         in_features = args.hidden_size
         if args.enc_type == 'cnn':
@@ -68,9 +73,10 @@ class ParserModel(nn.Module):
         self.label_biaffine = Biaffine(args.label_mlp_size,
                                        args.rel_size, bias=(True, True))
 
+        self.word_fc = nn.Linear(args.wd_embed_dim, args.wd_embed_dim)
+        self.tag_fc = nn.Linear(args.tag_embed_dim, args.tag_embed_dim)
         self.word_norm = nn.LayerNorm(args.wd_embed_dim)
         self.tag_norm = nn.LayerNorm(args.tag_embed_dim)
-        self.pos_norm = nn.LayerNorm(args.wd_embed_dim + args.tag_embed_dim)
 
         self.reset_parameters()
 
@@ -82,9 +88,10 @@ class ParserModel(nn.Module):
         # (bz, seq_len, embed_dim)
         wd_embed = self.wd_embedding(wd_inputs)
         extwd_embed = self.pretrained_embedding(extwd_inputs)
-        wd_embed += extwd_embed
+        wd_embed = wd_embed + extwd_embed
         # (bz, seq_len, embed_dim)
         tag_embed = self.tag_embedding(tag_inputs)
+        wd_embed, tag_embed = self.word_fc(wd_embed), self.tag_fc(tag_embed)
         wd_embed, tag_embed = self.word_norm(wd_embed), self.tag_norm(tag_embed)
 
         if self.training:
@@ -98,8 +105,7 @@ class ParserModel(nn.Module):
             seq_range = torch.arange(seq_len, dtype=torch.long, device=wd_inputs.device)\
                 .unsqueeze(dim=0).expand_as(wd_inputs)  # (1, seq_len)
             # [bz, seq_len, d_model]
-            embed += self.pos_embedding(seq_range)
-            embed = self.pos_norm(embed)
+            embed = embed + self.pos_embedding(seq_range)
             if self.training:
                 embed = timestep_dropout(embed, self.args.embed_drop)
 
