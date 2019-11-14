@@ -12,13 +12,15 @@ class NonlinearMLP(nn.Module):
             assert callable(activation)
             self.activation = activation
 
+        self.bias = bias
         self.linear = nn.Linear(in_features=in_feature,
                                 out_features=out_feature,
                                 bias=bias)
 
     def reset_parameters(self):
         nn.init.orthogonal_(self.linear.weight)
-        nn.init.zeros_(self.linear.bias)
+        if self.bias:
+            nn.init.zeros_(self.linear.bias)
 
     def forward(self, inputs):
         linear_out = self.linear(inputs)

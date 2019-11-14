@@ -37,7 +37,10 @@ def batch_variable(batch_data, dep_vocab):
     head_idx = torch.zeros((batch_size, max_seq_len), dtype=torch.long)
     rel_idx = torch.zeros((batch_size, max_seq_len), dtype=torch.long)
     non_pad_mask = torch.zeros((batch_size, max_seq_len))
+    # 含标点符号的mask
+    punc_mask = torch.zeros((batch_size, max_seq_len), dtype=torch.uint8)
 
+    punc_tags = ['``', "''", ':', ',', '.', 'PU']
     for i, deps in enumerate(batch_data):
         seq_len = len(deps)
         wd_idx[i, :seq_len] = torch.tensor(dep_vocab.word2index([dep.form for dep in deps]))
@@ -46,5 +49,6 @@ def batch_variable(batch_data, dep_vocab):
         head_idx[i, :seq_len] = torch.tensor([dep.head for dep in deps])
         rel_idx[i, :seq_len] = torch.tensor(dep_vocab.rel2index([dep.dep_rel for dep in deps]))
         non_pad_mask[i, :seq_len].fill_(1)
+        punc_mask[i, :seq_len] = torch.tensor([dep.pos in punc_tags for dep in deps])
 
-    return wd_idx, extwd_idx, tag_idx, head_idx, rel_idx, non_pad_mask
+    return wd_idx, extwd_idx, tag_idx, head_idx, rel_idx, non_pad_mask, punc_mask

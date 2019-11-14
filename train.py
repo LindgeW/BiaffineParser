@@ -17,6 +17,7 @@ from datautil.dataloader import load_dataset
 from vocab.dep_vocab import create_vocab
 from modules.model import ParserModel
 from modules.parser import BiaffineParser
+from modules.char_embedding import *
 
 
 if __name__ == '__main__':
@@ -47,6 +48,7 @@ if __name__ == '__main__':
     args.wd_vocab_size = dep_vocab.vocab_size
     args.pos_size = dep_vocab.pos_size
     args.rel_size = dep_vocab.rel_size
+
     parser_model = ParserModel(args, embed_weights).to(args.device)
 
     biff_parser = BiaffineParser(parser_model)

@@ -61,7 +61,7 @@ class RNNEncoder(nn.Module):
         self.batch_first = batch_first
         self.bidirectional = bidirectional
         self.dropout = 0. if num_layers == 1 else dropout
-        self.num_directions = 2 if self.bidirectional else 1
+        self.num_directions = 2 if bidirectional else 1
 
         self._rnn_types = ['RNN', 'LSTM', 'GRU']
 
@@ -70,9 +70,6 @@ class RNNEncoder(nn.Module):
         # 获取torch.nn对象中相应的的构造函数
         self._rnn_cell = getattr(nn, self.rnn_type+'Cell')  # getattr获取对象的属性或者方法
 
-        # ModuleList是Module的子类，当在Module中使用它的时候，就能自动识别为子module
-        # 当添加nn.ModuleList作为nn.Module对象的一个成员时（即当我们添加模块到我们的网络时），
-        # 所有nn.ModuleList内部的nn.Module的parameter也被添加作为我们的网络的parameter
         self.fw_cells = nn.ModuleList()
         self.bw_cells = nn.ModuleList()
         for layer_i in range(self.num_layers):  # 纵向延伸
@@ -81,14 +78,7 @@ class RNNEncoder(nn.Module):
             if self.bidirectional:
                 self.bw_cells.append(self._rnn_cell(input_size=layer_input_size, hidden_size=self.hidden_size))
 
-        # self.cell = nn.LSTMCell(
-        # 	input_size=self.input_size,   # 输入的特征维度
-        # 	hidden_size=self.hidden_size  # 隐层的维度
-        # )
-
-    def init_hidden(self, batch_size, retain=True, device=torch.device('cpu')):
-        if retain:  # 是否保证每轮迭代都初始化隐层
-            torch.manual_seed(3357)
+    def init_hidden(self, batch_size, device=torch.device('cpu')):
         # hidden = torch.randn(batch_size, self.hidden_size, device=device)
         # hidden = torch.rand(batch_size, self.hidden_size, device=device)
         hidden = torch.zeros(batch_size, self.hidden_size, device=device)
@@ -109,15 +99,13 @@ class RNNEncoder(nn.Module):
                 c_next = c_next * mask[xi] + init_hidden[1] * (1 - mask[xi])
                 out_fw.append(h_next)
 
-                hx_next = (h_next, c_next)
+                hx_fw = (h_next, c_next)
             else:
                 h_next = cell(input=inputs[xi], hx=hx_fw)
                 h_next = h_next * mask[xi] + init_hidden * (1 - mask[xi])
                 out_fw.append(h_next)
 
-                hx_next = h_next
-
-            hx_fw = hx_next
+                hx_fw = h_next
 
         out_fw = torch.stack(tuple(out_fw), dim=0)
         return out_fw, hx_fw
@@ -133,15 +121,13 @@ class RNNEncoder(nn.Module):
                 c_next = c_next * mask[xi] + init_hidden[1] * (1 - mask[xi])
                 out_bw.append(h_next)
 
-                hx_next = (h_next, c_next)
+                hx_bw = (h_next, c_next)
             else:
                 h_next = cell(input=inputs[xi], hx=hx_bw)
                 h_next = h_next * mask[xi] + init_hidden * (1 - mask[xi])
                 out_bw.append(h_next)
 
-                hx_next = h_next
-
-            hx_bw = hx_next
+                hx_bw = h_next
 
         out_bw.reverse()
         out_bw = torch.stack(tuple(out_bw), dim=0)
@@ -162,7 +148,7 @@ class RNNEncoder(nn.Module):
             mask = mask.transpose(0, 1)
 
         # [batch_size, seq_len] -> [batch_size, seq_len, 1] -> [batch_size, seq_len, hidden_size]
-        mask = mask.unsqueeze(-1).expand((-1, -1, self.hidden_size))
+        mask = mask.unsqueeze(2).expand((-1, -1, self.hidden_size))
 
         batch_size = inputs.size(1)
         if init_hidden is None:
@@ -181,7 +167,7 @@ class RNNEncoder(nn.Module):
                 if layer != 0:
                     input_drop_mask = torch.zeros(batch_size, input_size, device=inputs.device).fill_(1 - self.dropout)
                     # 在相同的设备上创建一个和inputs数据类型相同的tensor
-                    # input_drop_mask = inputs.data.new(batch_size, input_size).fill_(1 - self.dropout)
+                    # input_drop_mask = inputs.data.new_full((batch_size, input_size), 1 - self.dropout)
                     input_drop_mask = torch.bernoulli(input_drop_mask)
                     input_drop_mask = torch.div(input_drop_mask, (1 - self.dropout))
                     input_drop_mask = input_drop_mask.unsqueeze(-1).expand((-1, -1, seq_len)).permute((2, 0, 1))

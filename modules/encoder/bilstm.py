@@ -45,7 +45,10 @@ class BiLSTMEncoder(nn.Module):
         :param non_pad_mask: (bz, seq_len)
         :return:
         '''
-        seq_lens = non_pad_mask.data.sum(dim=-1)
+        if non_pad_mask is None:
+            non_pad_mask = embed_inputs.data.new_full(embed_inputs.shape[:2], 1)
+
+        seq_lens = non_pad_mask.data.sum(dim=1)
         sort_lens, sort_idxs = torch.sort(seq_lens, dim=0, descending=True)
         pack_embed = pack_padded_sequence(embed_inputs[sort_idxs], lengths=sort_lens, batch_first=True)
         pack_enc_out, _ = self.bilstm(pack_embed)

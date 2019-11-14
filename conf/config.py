@@ -16,12 +16,13 @@ def args_config():
 
     parse.add_argument('--cuda', type=int, default=-1, help='training device, default on cpu')
 
-    parse.add_argument('-lr', '--learning_rate', type=float, default=3e-3, help='learning rate of training')
+    parse.add_argument('-lr', '--learning_rate', type=float, default=2e-3, help='learning rate of training')
     parse.add_argument('-bt1', '--beta1', type=float, default=0.9, help='beta1 of Adam optimizer')
-    parse.add_argument('-bt2', '--beta2', type=float, default=0.99, help='beta2 of Adam optimizer')
+    parse.add_argument('-bt2', '--beta2', type=float, default=0.9, help='beta2 of Adam optimizer')
 
-    parse.add_argument('--batch_size', type=int, default=128, help='batch size')
-    parse.add_argument('--epoch', type=int, default=100, help='iteration of training')
+    parse.add_argument('--batch_size', type=int, default=128, help='train batch size')
+    # parse.add_argument('--test_batch_size', type=int, default=100, help='test batch size')
+    parse.add_argument('--epoch', type=int, default=20, help='iteration of training')
     parse.add_argument('--update_steps', type=int, default=4, help='gradient accumulation and update per x steps')
 
     parse.add_argument('--wd_embed_dim', type=int, default=100, help='word embedding size')

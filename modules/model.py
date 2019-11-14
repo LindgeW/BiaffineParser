@@ -3,15 +3,19 @@ from .encoder.transformer2 import TransformerEncoder
 from .encoder.bilstm import BiLSTMEncoder
 from .encoder.cnn_encoder import ConvEncoder
 from .encoder.transformer import PositionEmbed
-from .MST import mst_decode
+from modules.decode_alg.MST import mst_decode
 from .dropout import *
-# from fastNLP.modules.encoder import TransformerEncoder
+import torch
 '''
 graph-based parser构成：
 1、特征提取器(CNN / LSTM / ELMo / Transformer / Bert)
 2、MLP-arc / MLP-rel
 3、Biaffine
 '''
+
+
+def swish(x):
+    return x * torch.sigmoid(x)
 
 
 class ParserModel(nn.Module):
@@ -24,8 +28,12 @@ class ParserModel(nn.Module):
                                          embedding_dim=args.wd_embed_dim,
                                          padding_idx=0)
 
-        self.pretrained_embedding = nn.Embedding.from_pretrained(torch.from_numpy(embed_weights))
-        self.pretrained_embedding.weight.requires_grad = False
+        self.pretrained_embedding = nn.Embedding.from_pretrained(torch.from_numpy(embed_weights), freeze=True)
+        # self.pretrained_embedding = nn.Embedding(num_embeddings=embed_weights.shape[0],
+        #                                          embedding_dim=args.wd_embed_dim,
+        #                                          padding_idx=0)
+        # self.pretrained_embedding.weight.data.copy_(torch.from_numpy(embed_weights))
+        # self.pretrained_embedding.weight.requires_grad = False
 
         # 词性embedding
         self.tag_embedding = nn.Embedding(num_embeddings=args.pos_size,
@@ -48,7 +56,8 @@ class ParserModel(nn.Module):
         elif args.enc_type == 'transformer':
             self.encoder = TransformerEncoder(args)
 
-        self._activation = nn.ELU()
+        self._activation = nn.ReLU()
+        # self._activation = nn.ELU()
         # self._activation = nn.LeakyReLU(0.1)
 
         self.mlp_arc_head = NonlinearMLP(in_feature=in_features,
@@ -73,10 +82,10 @@ class ParserModel(nn.Module):
         self.label_biaffine = Biaffine(args.label_mlp_size,
                                        args.rel_size, bias=(True, True))
 
-        self.word_fc = nn.Linear(args.wd_embed_dim, args.wd_embed_dim)
-        self.tag_fc = nn.Linear(args.tag_embed_dim, args.tag_embed_dim)
-        self.word_norm = nn.LayerNorm(args.wd_embed_dim)
-        self.tag_norm = nn.LayerNorm(args.tag_embed_dim)
+        # self.word_fc = nn.Linear(args.wd_embed_dim, args.wd_embed_dim)
+        # self.tag_fc = nn.Linear(args.tag_embed_dim, args.tag_embed_dim)
+        # self.word_norm = nn.LayerNorm(args.wd_embed_dim)
+        # self.tag_norm = nn.LayerNorm(args.tag_embed_dim)
 
         self.reset_parameters()
 
@@ -91,28 +100,28 @@ class ParserModel(nn.Module):
         wd_embed = wd_embed + extwd_embed
         # (bz, seq_len, embed_dim)
         tag_embed = self.tag_embedding(tag_inputs)
-        wd_embed, tag_embed = self.word_fc(wd_embed), self.tag_fc(tag_embed)
-        wd_embed, tag_embed = self.word_norm(wd_embed), self.tag_norm(tag_embed)
+        #wd_embed, tag_embed = self.word_fc(wd_embed), self.tag_fc(tag_embed)
+        #wd_embed, tag_embed = self.word_norm(wd_embed), self.tag_norm(tag_embed)
 
         if self.training:
             wd_embed, tag_embed = independent_dropout(wd_embed, tag_embed, self.args.embed_drop)
 
         # (bz, seq_len, 2*embed_dim)
-        embed = torch.cat((wd_embed, tag_embed), dim=-1)
+        input_embed = torch.cat((wd_embed, tag_embed), dim=-1)
 
         if self.args.enc_type == 'transformer':
             seq_len = wd_inputs.size(1)
             seq_range = torch.arange(seq_len, dtype=torch.long, device=wd_inputs.device)\
                 .unsqueeze(dim=0).expand_as(wd_inputs)  # (1, seq_len)
             # [bz, seq_len, d_model]
-            embed = embed + self.pos_embedding(seq_range)
+            input_embed = input_embed + self.pos_embedding(seq_range)
             if self.training:
-                embed = timestep_dropout(embed, self.args.embed_drop)
+                input_embed = timestep_dropout(input_embed, self.args.embed_drop)
 
-        enc_out = self.encoder(embed, non_pad_mask)
+        enc_out = self.encoder(input_embed, non_pad_mask)
 
         if self.training:
-            enc_out = timestep_dropout(enc_out, self.args.arc_mlp_drop)
+            enc_out = timestep_dropout(enc_out, self.args.lstm_drop)
 
         arc_input, lbl_input = enc_out, enc_out
 
@@ -122,7 +131,6 @@ class ParserModel(nn.Module):
         if self.training:
             arc_dep = timestep_dropout(arc_dep, self.args.arc_mlp_drop)
             arc_head = timestep_dropout(arc_head, self.args.arc_mlp_drop)
-
         # (bz, seq_len, seq_len, 1) -> (bz, seq_len, seq_len)
         arc_score = self.arc_biaffine(arc_dep, arc_head).squeeze()
 
