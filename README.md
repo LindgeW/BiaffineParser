@@ -25,3 +25,4 @@ Biaffine Parser based on CNN / LSTM / Transformer Encoder
     <td>87.323</td>
   </tr>
 </table>
+For evaluation, omitting punctuation will get better performance in uas and las.
