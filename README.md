@@ -1,8 +1,7 @@
 # BiaffineParser
 Biaffine Parser based on CNN / LSTM / Transformer Encoder
 
-name | 价格 |  数量  
+Baseline(without punctuation) | my performance(without punctuation) |  my performance(with punctuation)  
 :-: | :-: | :-: 
-香蕉 | $1 | 5 |
-苹果 | $1 | 6 |
-草莓 | $1 | 7 |
+UAS | LAS | UAS | LAS | UAS | LAS
+89.30 | 88.23 | 89.774 | 88.357 | 88.551 | 87.323
