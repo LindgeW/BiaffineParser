@@ -2,7 +2,7 @@
 Biaffine Parser based on CNN / LSTM / Transformer Encoder
 
 > Results on CTB 5.1
-<table text-align='center'>
+<table align='center'>
   <tr>
     <th colspan='2'>Baseline(without punctuation)</th>
     <th colspan='2'>my performance(without punctuation)</th>
