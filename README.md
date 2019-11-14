@@ -1,12 +1,8 @@
 # BiaffineParser
 Biaffine Parser based on CNN / LSTM / Transformer Encoder
 
-Baseline(without punctuation) | my performance(without punctuation) |  my performance(with punctuation)  
-:-: | :-: | :-: 
-UAS | LAS | UAS | LAS | UAS | LAS
-89.30 | 88.23 | 89.774 | 88.357 | 88.551 | 87.323
-
-<table>
+> Results on CTB 5.1
+<table text-align='center'>
   <tr>
     <th colspan='2'>Baseline(without punctuation)</th>
     <th colspan='2'>my performance(without punctuation)</th>
