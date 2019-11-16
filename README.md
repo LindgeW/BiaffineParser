@@ -5,9 +5,9 @@ Biaffine Parser based on CNN / LSTM / Transformer Encoder
 <table align='center'>
   <tr>
     <th></th>
-    <th colspan='2'>Baseline(without punctuation)</th>
-    <th colspan='2'>my performance(without punctuation)</th>
-    <th colspan='2'>my performance(with punctuation)</th>
+    <th>Baseline(without punctuation)</th>
+    <th>my performance(without punctuation)</th>
+    <th>my performance(with punctuation)</th>
   </tr>
   <tr>
     <td>UAS</td>
