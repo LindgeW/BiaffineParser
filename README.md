@@ -4,6 +4,7 @@ Biaffine Parser based on CNN / LSTM / Transformer Encoder
 > Results on CTB 5.1
 <table align='center'>
   <tr>
+    <th></th>
     <th colspan='2'>Baseline(without punctuation)</th>
     <th colspan='2'>my performance(without punctuation)</th>
     <th colspan='2'>my performance(with punctuation)</th>
@@ -11,16 +12,16 @@ Biaffine Parser based on CNN / LSTM / Transformer Encoder
   <tr>
     <td>UAS</td>
     <td>LAS</td>
-    <td>UAS</td>
-    <td>LAS</td>
-    <td>UAS</td>
-    <td>LAS</td>
   </tr>
   <tr>
     <td>89.30</td>
     <td>88.23</td>
+  </tr>
+  <tr>
     <td><b>89.774</b></td>
     <td><b>88.357</b></td>
+  </tr>
+  <tr>
     <td>88.551</td>
     <td>87.323</td>
   </tr>
