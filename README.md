@@ -11,18 +11,14 @@ Biaffine Parser based on CNN / LSTM / Transformer Encoder
   </tr>
   <tr>
     <td>UAS</td>
-    <td>LAS</td>
-  </tr>
-  <tr>
     <td>89.30</td>
-    <td>88.23</td>
-  </tr>
-  <tr>
     <td><b>89.774</b></td>
-    <td><b>88.357</b></td>
+    <td>88.551</td>
   </tr>
   <tr>
-    <td>88.551</td>
+    <td>LAS</td>
+    <td>88.23</td>
+    <td><b>88.357</b></td>
     <td>87.323</td>
   </tr>
 </table>
