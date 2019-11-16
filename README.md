@@ -5,9 +5,9 @@ Biaffine Parser based on CNN / LSTM / Transformer Encoder
 <table>
   <tr>
     <th></th>
-    <th>Baseline(without punctuation)</th>
-    <th>my performance(without punctuation)</th>
-    <th>my performance(with punctuation)</th>
+    <th>Baseline(without punct)</th>
+    <th>my performance(without punct)</th>
+    <th>my performance(with punct)</th>
     <th>*Bert(Finetune-last)</th>
     <th>*Bert(Fixed-8)</th>
   </tr>
