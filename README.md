@@ -28,5 +28,4 @@ Biaffine Parser based on CNN / LSTM / Transformer Encoder
     <td>91.80</td>
   </tr>
 </table>
-For evaluation, omitting punctuations will get better performance in uas and las.
-We can also prove this conclusion from mathematics.
+For evaluation, omitting punctuations will give higher values on UAS and LAS, demonstrating that puncts are more difficult.
