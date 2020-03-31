@@ -40,13 +40,7 @@ class ParserModel(nn.Module):
                                           embedding_dim=args.tag_embed_dim,
                                           padding_idx=0)
 
-        self.pos_embedding = nn.Embedding(num_embeddings=args.max_pos_embeddings,
-                                          embedding_dim=args.wd_embed_dim + args.tag_embed_dim)
-        if args.use_sine_pos:
-            self.pos_embedding.weight.data.copy_(torch.from_numpy(PositionEmbed(args.max_pos_embeddings,
-                                                                                d_model=args.wd_embed_dim + args.tag_embed_dim,
-                                                                                pad_idx=0)))
-            self.pos_embedding.weight.requires_grad = False
+        self.pos_embedding = nn.Embedding.from_pretrained(torch.from_numpy(PositionEmbed(args.max_pos_embeddings, d_model=args.wd_embed_dim + args.tag_embed_dim, pad_idx=0)), freeze=True)
 
         in_features = args.hidden_size
         if args.enc_type == 'cnn':
@@ -60,21 +54,12 @@ class ParserModel(nn.Module):
         # self._activation = nn.ELU()
         # self._activation = nn.LeakyReLU(0.1)
 
-        self.mlp_arc_head = NonlinearMLP(in_feature=in_features,
-                                         out_feature=args.arc_mlp_size,
-                                         activation=self._activation)
-
-        self.mlp_arc_dep = NonlinearMLP(in_feature=in_features,
-                                        out_feature=args.arc_mlp_size,
-                                        activation=self._activation)
-
-        self.mlp_label_head = NonlinearMLP(in_feature=in_features,
-                                           out_feature=args.label_mlp_size,
-                                           activation=self._activation)
-
-        self.mlp_label_dep = NonlinearMLP(in_feature=in_features,
-                                          out_feature=args.label_mlp_size,
-                                          activation=self._activation)
+        self.mlp_arc = NonlinearMLP(in_feature=in_features,
+                                    out_feature=args.arc_mlp_size * 2,
+                                    activation=self._activation)
+        self.mlp_lbl = NonlinearMLP(in_feature=in_features,
+                                    out_feature=args.label_mlp_size * 2,
+                                    activation=self._activation)
 
         self.arc_biaffine = Biaffine(args.arc_mlp_size,
                                      1, bias=(True, False))
@@ -100,8 +85,8 @@ class ParserModel(nn.Module):
         wd_embed = wd_embed + extwd_embed
         # (bz, seq_len, embed_dim)
         tag_embed = self.tag_embedding(tag_inputs)
-        #wd_embed, tag_embed = self.word_fc(wd_embed), self.tag_fc(tag_embed)
-        #wd_embed, tag_embed = self.word_norm(wd_embed), self.tag_norm(tag_embed)
+        # wd_embed, tag_embed = self.word_fc(wd_embed), self.tag_fc(tag_embed)
+        # wd_embed, tag_embed = self.word_norm(wd_embed), self.tag_norm(tag_embed)
 
         if self.training:
             wd_embed, tag_embed = independent_dropout(wd_embed, tag_embed, self.args.embed_drop)
@@ -123,24 +108,19 @@ class ParserModel(nn.Module):
         if self.training:
             enc_out = timestep_dropout(enc_out, self.args.lstm_drop)
 
-        arc_input, lbl_input = enc_out, enc_out
+        arc_feat = self.mlp_arc(enc_out)
+        lbl_feat = self.mlp_lbl(enc_out)
+        arc_head, arc_dep = arc_feat.chunk(2, dim=-1)
+        lbl_head, lbl_dep = lbl_feat.chunk(2, dim=-1)
 
-        # (bz, seq_len, mlp_arc_size)
-        arc_dep = self.mlp_arc_dep(arc_input)
-        arc_head = self.mlp_arc_head(arc_input)
         if self.training:
-            arc_dep = timestep_dropout(arc_dep, self.args.arc_mlp_drop)
             arc_head = timestep_dropout(arc_head, self.args.arc_mlp_drop)
-        # (bz, seq_len, seq_len, 1) -> (bz, seq_len, seq_len)
-        arc_score = self.arc_biaffine(arc_dep, arc_head).squeeze()
+            arc_dep = timestep_dropout(arc_dep, self.args.arc_mlp_drop)
+        arc_score = self.arc_biaffine(arc_dep, arc_head).squeeze(-1)
 
-        # (bz, seq_len, mlp_label_size)
-        lbl_dep = self.mlp_label_dep(lbl_input)
-        lbl_head = self.mlp_label_head(lbl_input)
         if self.training:
-            lbl_dep = timestep_dropout(lbl_dep, self.args.label_mlp_drop)
             lbl_head = timestep_dropout(lbl_head, self.args.label_mlp_drop)
-        # (bz, seq_len, seq_len, rel_size)
+            lbl_dep = timestep_dropout(lbl_dep, self.args.label_mlp_drop)
         lbl_score = self.label_biaffine(lbl_dep, lbl_head)
 
         return arc_score, lbl_score
